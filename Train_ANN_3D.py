@@ -219,12 +219,13 @@ if test:
     precision, recall, fbeta_score, support = precision_recall_fscore_support(y_true, y_pred, labels=np.unique(y_true),
                                                                               average='weighted')
 
-    print('Test Loss: ' + str(test_loss) + ' --- Test Accuracy: ' + str(test_accuracy) + ' --- Test Precision: ' + str(
-        precision))
-
+    print('ANN Classification Report')
     print(classification_report(y_true, y_pred, target_names=['Class 0', 'Class 1', 'Class 2']))
+    print('Balanced Accuracy: ' + str(test_accuracy))
+    print('Total Precision: ' + str(precision))
+    print('Total Recall: ' + str(recall))
+    print('Total F1 Score: ' + str(fbeta_score))
 
-a = 1
 
 
 

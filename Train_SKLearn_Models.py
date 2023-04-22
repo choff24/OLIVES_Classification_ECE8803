@@ -149,10 +149,11 @@ if Train_SVM:
                                                                                               average='weighted')
 
     print('SVM Classification Report /n')
+    print('Balanced Accuracy: ' + str(test_accuracy_svm))
     print(classification_report(y_test, y_pred_svm, target_names=['Class 0', 'Class 1', 'Class 2']))
-    print(str(precision_svm))
-    print(str(recall_svm))
-    print(str(fbeta_score_svm))
+    print('Total Precision: ' + str(precision_svm))
+    print('Total Recall: ' + str(recall_svm))
+    print('Total F1 Score: ' + str(fbeta_score_svm))
     dump(clf, os.getcwd() + '/Models/NuSVM_Model.joblib')
 
 if Train_KNN:
@@ -171,12 +172,12 @@ if Train_KNN:
     precision_knn, recall_knn, fbeta_score_knn, support_knn = precision_recall_fscore_support(y_test, y_pred_knn,
                                                                                               labels=np.unique(y_test),
                                                                                               average='weighted')
-
     print('KNN Classification Report /n')
+    print('Balanced Accuracy: ' + str(test_accuracy_knn))
     print(classification_report(y_test, y_pred_knn, target_names=['Class 0', 'Class 1', 'Class 2']))
-    print(str(precision_knn))
-    print(str(recall_knn))
-    print(str(fbeta_score_knn))
+    print('Total Precision: ' + str(precision_knn))
+    print('Total Recall: ' + str(recall_knn))
+    print('Total F1 Score: ' + str(fbeta_score_knn))
 
     dump(clf, os.getcwd() + '/Models/KNN_Model.joblib')
 

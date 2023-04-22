@@ -248,6 +248,9 @@ if test:
     print('Test Loss: ' + str(test_loss) + ' --- Test Accuracy: ' + str(test_accuracy) + ' --- Test Precision: ' + str(
         precision))
 
+    print('CNN Classification Report')
     print(classification_report(y_true, y_pred, target_names=['Class 0', 'Class 1', 'Class 2']))
-
-    a = 1
+    print('Balanced Accuracy: ' + str(test_accuracy))
+    print('Total Precision: ' + str(precision))
+    print('Total Recall: ' + str(recall))
+    print('Total F1 Score: ' + str(fbeta_score))
