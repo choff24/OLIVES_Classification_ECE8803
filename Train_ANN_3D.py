@@ -7,8 +7,10 @@ import Models
 import matplotlib.pyplot as plt
 import torchmetrics
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support, classification_report
 import torchio as tio
+
+# This file train ANN Model
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -24,6 +26,7 @@ LABELS_Severity = {35: 0,
 mean = (.1706)
 std = (.2112)
 
+# Setup transforms, normalization, and data augmentation
 normalize = transforms.Normalize(mean=mean, std=std)
 
 weights = torch.Tensor([1/7788, 1/11760, 1/4704])
@@ -44,17 +47,18 @@ ThreeDimTransform = tio.Compose([spatial])
 
 args = dataloader.parse_args()
 args.data_root = os.getcwd()
-args.ThreeDim = ThreeDimTransform
+args.ThreeDim = None
 trainset = dataloader.OCTDataset(args, 'train', transform=transform)
 testset = dataloader.OCTDataset(args, 'test', transform=transform)
 
 test_loader = torch.utils.data.DataLoader(dataset=testset, batch_size=3, shuffle=True)
 
+#Load Classifier model and pretrained CAE
 model = Models.ClassifierANN(18816, 3, 2500, 3)
 model_dim = Models.CAE_3D()
 model_dim.load_state_dict(torch.load(os.getcwd() + '/Models/3D_CAE_Model.pth'))
 
-pretrained = False
+pretrained = True
 
 if pretrained:
     model.load_state_dict(torch.load(os.getcwd() + '/Models/ANN_3D.pth'))
@@ -62,27 +66,27 @@ if pretrained:
 model.to(device)
 model_dim.to(device)
 
+# Set model parameters
 loss_function = torch.nn.CrossEntropyLoss()
 
-#optimizer = torch.optim.SGD(model.parameters(),
-#                            lr=1e-3,
-#                            momentum=0.9,
-#                            nesterov=True,
-#                            weight_decay=1e-6)
-
-optimizer = torch.optim.Adam(model.parameters(),
+optimizer = torch.optim.NAdam(model.parameters(),
                               lr=1e-4,
                               weight_decay=1e-6)
 
 metric = torchmetrics.Accuracy(task='multiclass', num_classes=3, average='macro', multidim_average='global')
 
-epochs = 100
+epochs = 10
 outputs = []
 total_loss = []
-train = True
-test = False
+train = False
+test = True
+
+# Train loop
 
 if train:
+
+    # This section splits the training data into training and validation. It also sets up the weighted sampler to
+    # oversample the imbalanced classes
 
     trainset = dataloader.OCTDataset(args, 'train', transform=transform)
 
@@ -107,6 +111,7 @@ if train:
     train_accuracy_hist = []
     val_accuracy_hist = []
 
+    # Training Loop
     for epoch in range(epochs):
 
         train_loss = 0
@@ -165,6 +170,7 @@ if train:
         if (epoch + 1) % 10 == 0:
             torch.save(model.state_dict(), os.getcwd() + '/Models/ANN_3D.pth')
 
+    # Make some pretty plots for training
     train_loss_hist = np.array(train_loss_hist)
     train_accuracy_hist = np.array(train_accuracy_hist)
     val_loss_hist = np.array(val_loss_hist)
@@ -184,7 +190,7 @@ if train:
     plt.title('ANN Accuracy and Loss')
     plt.savefig(os.getcwd() + '/Plots/ANN_3D_Loss.png')
 
-
+# Testing loop
 if test:
     test_loss = 0
     test_acc = []
@@ -208,15 +214,17 @@ if test:
             y_pred = np.concatenate((y_pred, pred_label_test.cpu().detach().numpy()))
 
 
-    test_accuracy = metric.compute().numpy()
-    val_accuracy = balanced_accuracy_score(y_true, y_pred)
-    l1_acc = ((y_true == 1) & (y_pred == 1)).sum() / np.sum(y_true == 1)
-    l0_acc = ((y_true == 0) & (y_pred == 0)).sum() / np.sum(y_true == 0)
-    l2_acc = ((y_true == 2) & (y_pred == 2)).sum() / np.sum(y_true == 2)
+    test_accuracy = balanced_accuracy_score(y_true, y_pred)
 
-    print('Test Loss: ' + str(test_loss) + ' --- Test Accuracy: ' + str(test_accuracy))
-    metric.reset()
+    precision, recall, fbeta_score, support = precision_recall_fscore_support(y_true, y_pred, labels=np.unique(y_true),
+                                                                              average='weighted')
 
+    print('Test Loss: ' + str(test_loss) + ' --- Test Accuracy: ' + str(test_accuracy) + ' --- Test Precision: ' + str(
+        precision))
+
+    print(classification_report(y_true, y_pred, target_names=['Class 0', 'Class 1', 'Class 2']))
+
+a = 1
 
 
 

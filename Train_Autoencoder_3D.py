@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import torchio as tio
 
+# Run the convolutional autoencoder used in the final project
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.cuda.empty_cache()
 LABELS_Severity = {35: 0,
@@ -22,6 +24,7 @@ LABELS_Severity = {35: 0,
 mean = (.1706)
 std = (.2112)
 
+# Setup image transformations, normalization, and augmentation
 normalize = transforms.Normalize(mean=mean, std=std)
 
 transform = transforms.Compose([
@@ -46,6 +49,7 @@ testset = dataloader.OCTDataset(args, 'test', transform=transform)
 
 test_loader = torch.utils.data.DataLoader(dataset=testset, batch_size=2, shuffle=True)
 
+# Load pretrained weights if wanted
 model = Models.CAE_3D()
 pretrained = False
 
@@ -54,12 +58,6 @@ if pretrained:
 
 model.to(device)
 loss_function = torch.nn.MSELoss()
-
-#optimizer = torch.optim.SGD(model.parameters(),
-#                            lr=1e-3,
-#                            weight_decay=1e-6,
-#                            momentum=0.9,
-#                            nesterov=True)
 
 optimizer = torch.optim.Adam(model.parameters(),
                             lr=1e-3,
@@ -73,8 +71,10 @@ plot = False
 num_plot = 10
 weights = torch.Tensor([1/159, 1/240, 1/96])
 
+# Training loop
 if train:
 
+    # Setup oversampler using a weighted random sampler to help with the imbalanced data
     trainset = dataloader.OCTDataset(args, 'train', transform=transform)
 
     targets = trainset._labels
@@ -96,6 +96,7 @@ if train:
     train_loss_hist = []
     val_loss_hist = []
 
+    # Actual training loop
     for epoch in range(epochs):
 
         train_loss = 0
@@ -151,6 +152,8 @@ if train:
     plt.title('Convolutional Autoencoder Loss')
     plt.savefig(os.getcwd() + '/Plots/CAE_3D_Loss.png')
 
+# Makes a picture of the reconstructed image to compare to the original image. Was originally made for 2D data so have
+# not reused on 3D model since
 if plot:
     for iteration, (image, label) in enumerate(test_loader):
         if iteration > num_plot:

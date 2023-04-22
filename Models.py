@@ -3,6 +3,10 @@ import torch
 import torch.nn.functional as F
 from functools import partial
 
+# This is a library of all models used throughout the work on this project. It includes 2d models as well as the final
+# 3d models used
+
+# Normal autoencoder for 2d data
 class AE(nn.Module):
 
     def __init__(self):
@@ -27,6 +31,7 @@ class AE(nn.Module):
         return decoded
 
 
+# One version of convolutional autoencoder used
 class CAE1(nn.Module):
 
     def __init__(self):
@@ -76,6 +81,7 @@ class CAE1(nn.Module):
 
         return x
 
+# Another version of convolutional autoencoder used
 class CAE2(nn.Module):
 
     def __init__(self):
@@ -118,6 +124,7 @@ class CAE2(nn.Module):
 
         return x
 
+# Final 3D convolutional autoencoder used in the project
 class CAE_3D(nn.Module):
 
     def __init__(self):
@@ -165,6 +172,8 @@ class CAE_3D(nn.Module):
         return x
 
 
+# ANN classifier used in the project, experimented with some very deep ANNs, so this model allows me to set the depth
+# and number of nuerons on initialization
 class ClassifierANN(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim, num_layers):
         super(ClassifierANN, self).__init__()
@@ -199,6 +208,9 @@ class ClassifierANN(nn.Module):
 
         return x
 
+
+# This is the start of the 3D ResNet implementation taken from the github repo found here:
+# https://github.com/xmuyzz/3D-CNN-PyTorch
 
 def get_inplanes():
     return [64, 128, 256, 512]

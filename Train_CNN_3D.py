@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch.utils.data
-
 import Models
 import dataloader_3D as dataloader
 from torchvision import transforms
@@ -8,10 +7,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torchmetrics
-import torchvision
-from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support, classification_report
 from sklearn.model_selection import train_test_split
 import torchio as tio
+import h5py
+
+# Train ResNet10 on OLIVES dataset
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -27,6 +28,7 @@ LABELS_Severity = {35: 0,
 mean = (.1706)
 std = (.2112)
 
+# Setup transforms, normalization, and data augmentation
 normalize = transforms.Normalize(mean=mean, std=std)
 
 transform = transforms.Compose([
@@ -49,7 +51,8 @@ args.ThreeDim = None
 #args.ThreeDim = ThreeDimTransform
 weights = torch.Tensor([1/159, 1/240, 1/96])
 
-model = Models.ResNet(Models.BasicBlock, [3, 4, 6, 3], block_inplanes=[64, 128, 256, 512],
+# Initialize the model and load any pretrained weights if needed
+model = Models.ResNet(Models.BasicBlock, [1, 1, 1, 1], block_inplanes=[64, 128, 256, 512],
                             n_classes=3,
                             n_input_channels=1,
                             shortcut_type='B',
@@ -58,33 +61,52 @@ model = Models.ResNet(Models.BasicBlock, [3, 4, 6, 3], block_inplanes=[64, 128, 
                             no_max_pool=False,
                             widen_factor=1.0)
 
-pretrained = False
+pretrained = True
 if pretrained:
     model.load_state_dict(torch.load(os.getcwd() + '/Models/CNN_Model_3D.pth'))
 
 model.to(device)
+
+# Initialize optimizer as well as loss function
+
 loss_function = torch.nn.CrossEntropyLoss(reduction='mean')
 
 optimizer = torch.optim.NAdam(model.parameters(),
-                              lr=1e-3,
+                              lr=1e-4,
                               weight_decay=1e-6
                               )
 
-#optimizer = torch.optim.SGD(model.parameters(),
-#                            lr=1e-2,
-#                            momentum=0.9,
-#                           nesterov=True)
-
 metric = torchmetrics.Accuracy(task='multiclass', num_classes=3)
 
-epochs = 100
+epochs = 10
 outputs = []
 total_loss = []
-train = True
-test = False
-
+train = False
+test = True
+Plot = False
 if train:
 
+    # Checks if we want any previously saved data/training history
+    if pretrained and Plot:
+        try:
+            f = h5py.File('CNN_3D_Loss_Accuracy_History.h5', 'r')
+            train_loss_hist = f['loss_train'][:]
+            val_loss_hist = f['loss_val'][:]
+            train_accuracy_hist = f['acc_train'][:]
+            val_accuracy_hist = f['acc_val'][:]
+        except:
+            train_loss_hist = np.array([])
+            val_loss_hist = np.array([])
+            train_accuracy_hist = np.array([])
+            val_accuracy_hist = np.array([])
+    else:
+        train_loss_hist = np.array([])
+        val_loss_hist = np.array([])
+        train_accuracy_hist = np.array([])
+        val_accuracy_hist = np.array([])
+
+    # This section separates training into training and validation as well as uses a weighted sampler to oversample
+    # the imbalanced classes
     trainset = dataloader.OCTDataset(args, 'train', transform=transform)
 
     targets = trainset._labels
@@ -101,12 +123,10 @@ if train:
 
     sampler = torch.utils.data.WeightedRandomSampler(torch.Tensor(reciprocal_weights), len(train_sub), replacement=True)
     train_loader = torch.utils.data.DataLoader(dataset=train_sub, batch_size=3, shuffle=False, sampler=sampler)
+    train_loader.dataset.dataset.transform3d = None
     val_loader = torch.utils.data.DataLoader(dataset=val_sub, batch_size=2, shuffle=False)
 
-    train_loss_hist = []
-    val_loss_hist = []
-    train_accuracy_hist = []
-    val_accuracy_hist = []
+    # Training loop
     for epoch in range(epochs):
 
         train_loss = 0
@@ -161,28 +181,40 @@ if train:
         print('Epoch ' + str(epoch + 1) + ' --- Train Loss: ' + str(train_loss) + ' --- Val Loss: ' + str(val_loss) +
               ' --- Train Accuracy: ' + str(train_accuracy) + ' --- Val Accuracy: ' + str(val_accuracy))
 
+        # Save model and extra data if wanted
         if (epoch + 1) % 10 == 0:
             torch.save(model.state_dict(), os.getcwd() + '/Models/CNN_Model_3D.pth')
 
-        train_loss_hist.append(train_loss)
-        val_loss_hist.append(val_loss)
-        val_accuracy_hist.append(val_accuracy)
-        train_accuracy_hist.append(train_accuracy)
+            if Plot:
+                f = h5py.File('CNN_3D_Loss_Accuracy_History.h5', 'w')
+                f.create_dataset('loss_train', data=train_loss_hist)
+                f.create_dataset('acc_train', data=train_accuracy_hist)
+                f.create_dataset('loss_val', data=val_loss_hist)
+                f.create_dataset('acc_val', data=val_accuracy_hist)
+                f.close()
 
-    train_loss_hist /= train_loss_hist[0]
-    val_loss_hist /= val_loss_hist[0]
+        train_loss_hist = np.concatenate((train_loss_hist, train_loss[np.newaxis]))
+        val_loss_hist = np.concatenate((val_loss_hist, val_loss[np.newaxis]))
+        train_accuracy_hist = np.concatenate((train_accuracy_hist, train_accuracy[np.newaxis]))
+        val_accuracy_hist = np.concatenate((val_accuracy_hist, val_accuracy[np.newaxis]))
 
-    plt.figure()
-    plt.plot(range(epochs), train_loss_hist, 'r')
-    plt.plot(range(epochs), val_loss_hist, 'b')
-    plt.plot(range(epochs), train_accuracy_hist, 'r--')
-    plt.plot(range(epochs), val_accuracy_hist, 'b--')
-    plt.legend(('Train Loss', 'Validation Loss', 'Train Accuracy', 'Validation Accuracy'))
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss/Accuracy')
-    plt.title('CNN Accuracy and Loss')
-    plt.savefig(os.getcwd() + '/Plots/CNN_3D_Loss.png')
+    # Make pretty picture if wanted
+    if Plot:
+        train_loss_hist /= train_loss_hist[0]
+        val_loss_hist /= val_loss_hist[0]
 
+        plt.figure()
+        plt.plot(range(epochs), train_loss_hist, 'r')
+        plt.plot(range(epochs), val_loss_hist, 'b')
+        plt.plot(range(epochs), train_accuracy_hist, 'r--')
+        plt.plot(range(epochs), val_accuracy_hist, 'b--')
+        plt.legend(('Train Loss', 'Validation Loss', 'Train Accuracy', 'Validation Accuracy'))
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss/Accuracy')
+        plt.title('CNN Accuracy and Loss')
+        plt.savefig(os.getcwd() + '/Plots/CNN_3D_Loss.png')
+
+# Test loop
 if test:
 
     testset = dataloader.OCTDataset(args, 'test', transform=transform)
@@ -215,3 +247,7 @@ if test:
 
     print('Test Loss: ' + str(test_loss) + ' --- Test Accuracy: ' + str(test_accuracy) + ' --- Test Precision: ' + str(
         precision))
+
+    print(classification_report(y_true, y_pred, target_names=['Class 0', 'Class 1', 'Class 2']))
+
+    a = 1
