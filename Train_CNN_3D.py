@@ -78,7 +78,7 @@ optimizer = torch.optim.NAdam(model.parameters(),
 
 metric = torchmetrics.Accuracy(task='multiclass', num_classes=3)
 
-epochs = 10
+epochs = 250
 outputs = []
 total_loss = []
 train = False
