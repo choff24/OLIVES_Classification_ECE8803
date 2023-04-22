@@ -78,7 +78,7 @@ metric = torchmetrics.Accuracy(task='multiclass', num_classes=3, average='macro'
 epochs = 250
 outputs = []
 total_loss = []
-train = False
+train = True
 test = True
 
 # Train loop

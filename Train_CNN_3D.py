@@ -81,9 +81,9 @@ metric = torchmetrics.Accuracy(task='multiclass', num_classes=3)
 epochs = 250
 outputs = []
 total_loss = []
-train = False
+train = True
 test = True
-Plot = False
+Plot = True
 if train:
 
     # Checks if we want any previously saved data/training history
